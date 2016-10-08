@@ -21,7 +21,7 @@ function AGGOF:__init(height, width)
    assert(width > 1)
    self.height = height
    self.width = width
-   
+
    self.baseGrid = torch.Tensor(2, height, width)
    for i=1,self.height do
       self.baseGrid:select(1,1):select(1,i):fill(-1 + (i-1)/(self.height-1) * 2)
@@ -29,20 +29,23 @@ function AGGOF:__init(height, width)
    for j=1,self.width do
       self.baseGrid:select(1,2):select(2,j):fill(-1 + (j-1)/(self.width-1) * 2)
    end
-   
+
    --self.baseGrid:select(1,3):fill(1)
 end
 
 function AGGOF:updateOutput(transformMap)
-   assert(transformMap:nDimension()==3
-          and transformMap:size(1)== 2
+   assert((transformMap:nDimension() == 3 and transformMap:size(1)==2)
+          or (transformMap:nDimension() == 4 and transformMap:size(2)==2)
           , 'please input a valid transform map ')
-   
    -- need to scale the transformMap
-   
-   self.output:resize(2, self.height, self.width):zero()
-   self.output = torch.add(self.baseGrid,transformMap)
-   
+   if( transformMap:nDimension()==4 ) then
+      b = transformMap:size(1)
+      self.output:resizeAs(transformMap):zero()
+      self.output = transformMap+self.baseGrid:view(1,2,self.height,self.width):expandAs(transformMap)
+   else
+      self.output:resize(2,self.height,self.width):zero()
+      self.output = transformMap+self.baseGrid:view(3,1):expandAs(X)
+   end
    return self.output
 end
 
