@@ -51,7 +51,7 @@ function SmoothHuberPenalty:__init(transf, l1weight, threshold, sizeAverage)
   --print (self.conv.weight)
   
   self.threshold = threshold or 0.001
-  self.l1weight = l1weight or 0.01
+  self.l1weight = l1weight or 0.01 --{0, l1weight, l1weight}
   self.sizeAverage = sizeAverage or true      
 end
 
@@ -63,17 +63,22 @@ function SmoothHuberPenalty:updateOutput(input)
 end
 
 function SmoothHuberPenalty:updateGradInput(input, gradOutput)
+-- input : B * 2 or 6 * H * W
   local m = self.l1weight 
   if self.sizeAverage == true then 
-    m = m/input:nElement()
+    m = m/(input:nElement()*input:size(1))
   end
   self.gradInput:resizeAs(gradOutput)
   
-  for i=1,input:size(1) do
-    local dx = self.grad:updateOutput(input[{{i},{},{}}])
-    dx:Huber(self.threshold)
+  for i=1,input:size(2) do
+    -- B * 1 * H * W
+    -- dx = sqrt( dx^2 + dy^2 ); Forward path
+    local dx = self.grad:updateOutput(input[{{},{i},{},{}}])
+
+    -- Calculate Backward
+    dx:Huber(self.threshold) -- Huber function will calculate gradient for input
     local gradL1 = dx:mul(m)
-    self.gradInput[{{i},{},{}}] = self.grad:updateGradInput(input[{{i},{},{}}],gradL1):clone()
+    self.gradInput[{{},{i},{},{}}] = self.grad:updateGradInput(input[{{},{i},{},{}}],gradL1):clone()
   end 
   
   --self.gradInput = self.conv:updateGradInput(input,gradL1) 
